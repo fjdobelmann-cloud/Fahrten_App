@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fahrtenbuch Cloud 2.1</title>
+<meta name="theme-color" content="#1f4e79">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+body{font-family:Segoe UI,Arial;max-width:1200px;margin:auto;padding:16px}
+input,button{padding:10px;margin:4px}
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ccc;padding:8px}
+#app{display:none}
+</style>
+</head>
+<body>
+<h1>Fahrtenbuch Cloud 2.1</h1>
+<div id="login"><button id="googleBtn">Mit Google anmelden</button></div>
+<div id="app">
+<p id="user"></p>
+<button id="logoutBtn">Abmelden</button>
+<button onclick="exportExcel()">Excel Export</button>
+<button onclick="deleteAll()">Alle Fahrten löschen</button><br>
+<input id="tag" type="date">
+<input id="startzeit" type="time">
+<input id="ankunftszeit" type="time">
+<input id="wegstrecke" placeholder="Wegstrecke">
+<input id="anlass" placeholder="Anlass">
+<input id="entfernung" type="number" placeholder="km">
+<button onclick="saveEntry()">Speichern</button>
+<div id="summe"></div>
+<table>
+<thead><tr><th>Tag</th><th>Start</th><th>Ankunft</th><th>Wegstrecke</th><th>Anlass</th><th>km</th><th>Aktion</th></tr></thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getAuth,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {getFirestore,collection,addDoc,getDocs,query,where,doc,updateDoc,deleteDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const ALLOWED_EMAIL='fjdobelmann@gmail.com';
+const firebaseConfig={apiKey:'AIzaSyBMN__LBaINRzLismgl1VS6D8uWvuWu6zk',authDomain:'fahrten-27fjd.firebaseapp.com',projectId:'fahrten-27fjd',storageBucket:'fahrten-27fjd.firebasestorage.app',messagingSenderId:'906370269481',appId:'1:906370269481:web:e563c99c19cd028b957738'};
+const app=initializeApp(firebaseConfig);
+const auth=getAuth(app);
+const db=getFirestore(app);
+let uid=null,editId=null,cache={};
+
+document.getElementById('googleBtn').onclick=()=>signInWithPopup(auth,new GoogleAuthProvider());
+document.getElementById('logoutBtn').onclick=()=>signOut(auth);
+
+onAuthStateChanged(auth, async(user)=>{
+ if(!user){login.style.display='block';app.style.display='none';return;}
+ if((user.email||'').toLowerCase()!==ALLOWED_EMAIL){
+   alert('Zugriff nur für '+ALLOWED_EMAIL);
+   await signOut(auth);
+   return;
+ }
+ uid=user.uid;
+ document.getElementById('user').innerText='Angemeldet als: '+user.email;
+ login.style.display='none';
+ app.style.display='block';
+ tag.value=new Date().toISOString().split('T')[0];
+ loadData();
+});
+
+window.loadData=async()=>{
+ tbody.innerHTML=''; cache={}; let total=0;
+ const s=await getDocs(query(collection(db,'fahrten'),where('uid','==',uid)));
+ s.forEach(r=>{const d=r.data(); cache[r.id]=d; total+=Number(d.entfernung||0);
+ tbody.innerHTML+=`<tr><td>${d.tag||''}</td><td>${d.startzeit||''}</td><td>${d.ankunftszeit||''}</td><td>${d.wegstrecke||''}</td><td>${d.anlass||''}</td><td>${d.entfernung||''}</td><td><button onclick="editRow('${r.id}')">Bearbeiten</button> <button onclick="removeRow('${r.id}')">Löschen</button></td></tr>`;
+ });
+ summe.innerText='Gesamtkilometer: '+total;
+}
+window.editRow=id=>{editId=id;const d=cache[id];['tag','startzeit','ankunftszeit','wegstrecke','anlass','entfernung'].forEach(k=>document.getElementById(k).value=d[k]||'');}
+window.saveEntry=async()=>{const data={uid,tag:tag.value,startzeit:startzeit.value,ankunftszeit:ankunftszeit.value,wegstrecke:wegstrecke.value,anlass:anlass.value,entfernung:entfernung.value}; if(editId){await updateDoc(doc(db,'fahrten',editId),data);editId=null;} else {await addDoc(collection(db,'fahrten'),data);} loadData();}
+window.removeRow=async(id)=>{if(confirm('Eintrag löschen?')){await deleteDoc(doc(db,'fahrten',id));loadData();}}
+window.deleteAll=async()=>{if(confirm('Alle Fahrten löschen?')){const s=await getDocs(query(collection(db,'fahrten'),where('uid','==',uid)));for(const d of s.docs){await deleteDoc(doc(db,'fahrten',d.id));}loadData();}}
+window.exportExcel=async()=>{const rows=[];const s=await getDocs(query(collection(db,'fahrten'),where('uid','==',uid)));s.forEach(d=>rows.push(d.data()));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Fahrten');XLSX.writeFile(wb,'Fahrtenbuch.xlsx');}
+</script>
+</body></html>
