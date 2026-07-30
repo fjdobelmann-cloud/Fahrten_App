@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fahrten</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:900px;margin:auto;padding:20px}
+label{display:block;margin-top:10px;font-weight:bold}
+input,button{width:100%;padding:12px;margin-top:4px;box-sizing:border-box}
+button{margin-top:10px;background:#1976d2;color:white;border:none;border-radius:4px}
+#status{color:green;font-weight:bold;margin-top:10px}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{border:1px solid #ccc;padding:8px;text-align:left}
+</style>
+</head>
+<body>
+<h1>Fahrten</h1>
+<label>Datum</label><input id="tag" type="date">
+<label>Start</label><input id="startzeit" type="time">
+<label>Ende</label><input id="endzeit" type="time">
+<label>Wegstrecke</label><input id="wegstrecke" type="text">
+<label>Anlass</label><input id="anlass" type="text">
+<label>Entfernung (km)</label><input id="entfernung" type="number" step="0.1">
+<button type="button" id="saveBtn">Speichern</button>
+<button type="button" id="exportBtn">Export nach Excel (CSV)</button>
+<button type="button" id="deleteBtn">Speicher löschen</button>
+<div id="status"></div>
+<h2>Bisher erfasste Fahrten</h2>
+<table><thead><tr><th>Datum</th><th>Start</th><th>Ende</th><th>Wegstrecke</th><th>Anlass</th><th>Entfernung</th></tr></thead><tbody id="liste"></tbody></table>
+<script>
+const KEY='fahrtenbuch';
+function heute(){return new Date().toISOString().split('T')[0];}
+function lade(){const daten=JSON.parse(localStorage.getItem(KEY)||'[]');const tbody=document.getElementById('liste');tbody.innerHTML='';daten.forEach(f=>{const tr=document.createElement('tr');tr.innerHTML='<td>'+f.tag+'</td><td>'+f.startzeit+'</td><td>'+f.endzeit+'</td><td>'+f.wegstrecke+'</td><td>'+f.anlass+'</td><td>'+f.entfernung+' km</td>';tbody.appendChild(tr);});}
+function speichern(){const daten=JSON.parse(localStorage.getItem(KEY)||'[]');daten.push({tag:document.getElementById('tag').value,startzeit:document.getElementById('startzeit').value,endzeit:document.getElementById('endzeit').value,wegstrecke:document.getElementById('wegstrecke').value,anlass:document.getElementById('anlass').value,entfernung:document.getElementById('entfernung').value});localStorage.setItem(KEY,JSON.stringify(daten));document.getElementById('status').textContent='✓ Fahrt gespeichert';document.getElementById('tag').value=heute();document.getElementById('startzeit').value='';document.getElementById('endzeit').value='';document.getElementById('wegstrecke').value='';document.getElementById('anlass').value='';document.getElementById('entfernung').value='';lade();}
+function loeschen(){if(confirm('Alle Fahrten endgültig löschen?')){localStorage.removeItem(KEY);lade();document.getElementById('status').textContent='✓ Speicher gelöscht';}}
+function exportCSV(){const daten=JSON.parse(localStorage.getItem(KEY)||'[]');let csv='Datum;Start;Ende;Wegstrecke;Anlass;Entfernung
+';daten.forEach(f=>{csv += [f.tag,f.startzeit,f.endzeit,f.wegstrecke,f.anlass,f.entfernung].join(';')+'
+';});const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));a.download='fahrten.csv';a.click();}
+document.getElementById('saveBtn').addEventListener('click', speichern);
+document.getElementById('deleteBtn').addEventListener('click', loeschen);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('tag').value=heute();lade();
+</script></body></html>
