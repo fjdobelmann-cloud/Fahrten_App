@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fahrtenbuch Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+body{font-family:Segoe UI,Arial;margin:20px;max-width:1300px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}input,button{padding:10px}table{width:100%;border-collapse:collapse;margin-top:15px}th,td{border:1px solid #ddd;padding:8px}th{background:#f3f3f3}.btn{cursor:pointer}
+</style></head><body>
+<h1>Fahrtenbuch Pro</h1>
+<p>GitHub Pages + Firebase Cloud + Excel Export</p>
+<div class='grid'>
+<input id='tag' type='date'><input id='startzeit' type='time'><input id='ankunftszeit' type='time'>
+<input id='wegstrecke' placeholder='Wegstrecke'><input id='anlass' placeholder='Anlass'><input id='entfernung' type='number' placeholder='Entfernung km'>
+</div><br>
+<button class='btn' onclick='saveEntry()'>Speichern</button>
+<button class='btn' onclick='exportExcel()'>Excel Export</button>
+<button class='btn' onclick='deleteAll()'>Alle Daten löschen</button>
+<table><thead><tr><th>Tag</th><th>Start</th><th>Ankunft</th><th>Wegstrecke</th><th>Anlass</th><th>km</th><th>Aktionen</th></tr></thead><tbody id='tbody'></tbody></table>
+<script type='module'>
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {getFirestore,collection,addDoc,getDocs,doc,updateDoc,deleteDoc} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const firebaseConfig={apiKey:'EINTRAGEN',authDomain:'EINTRAGEN',projectId:'EINTRAGEN'};
+const app=initializeApp(firebaseConfig);const db=getFirestore(app);
+let editId=null;
+window.loadData=async()=>{const tb=document.getElementById('tbody');tb.innerHTML='';const snap=await getDocs(collection(db,'fahrten'));snap.forEach(x=>{const d=x.data();const tr=document.createElement('tr');tr.innerHTML=`<td>${d.tag||''}</td><td>${d.startzeit||''}</td><td>${d.ankunftszeit||''}</td><td>${d.wegstrecke||''}</td><td>${d.anlass||''}</td><td>${d.entfernung||''}</td><td><button onclick="editRow('${x.id}')">Bearbeiten</button> <button onclick="removeRow('${x.id}')">Löschen</button></td>`;tb.appendChild(tr);window.cache=window.cache||{};window.cache[x.id]=d;});}
+window.editRow=(id)=>{const d=window.cache[id];editId=id;for(const k of ['tag','startzeit','ankunftszeit','wegstrecke','anlass','entfernung'])document.getElementById(k).value=d[k]||'';}
+window.saveEntry=async()=>{const data={tag:tag.value,startzeit:startzeit.value,ankunftszeit:ankunftszeit.value,wegstrecke:wegstrecke.value,anlass:anlass.value,entfernung:entfernung.value};if(editId){await updateDoc(doc(db,'fahrten',editId),data);editId=null;}else await addDoc(collection(db,'fahrten'),data);loadData();}
+window.removeRow=async(id)=>{if(confirm('Eintrag löschen?')){await deleteDoc(doc(db,'fahrten',id));loadData();}}
+window.deleteAll=async()=>{if(!confirm('Wirklich alle Daten löschen?'))return;const s=await getDocs(collection(db,'fahrten'));for(const d of s.docs)await deleteDoc(doc(db,'fahrten',d.id));loadData();}
+window.exportExcel=async()=>{const rows=[];const s=await getDocs(collection(db,'fahrten'));s.forEach(d=>rows.push(d.data()));const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Fahrten');XLSX.writeFile(wb,'Fahrtenbuch.xlsx');}
+loadData();
+</script></body></html>
